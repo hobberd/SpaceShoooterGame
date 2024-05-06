@@ -8,11 +8,13 @@ class Move extends Phaser.Scene
         
 
         // Game related
+        this.win = false;
         this.gameOver = false;
         this.score = 0;
         this.enemiesDefeated = 0;
         this.defeatsRequired = 30;
         this.delay = 0;
+        this.restart = false;
 
         // Player related
         this.playerX = 300;
@@ -61,7 +63,7 @@ class Move extends Phaser.Scene
         this.load.image("player", "player.png");
         this.load.image("zombie", "zombie.png");
         this.load.image("robot", "robot.png");
-        this.load.image("arrow", "item_arrow.png");
+        this.load.image("arrow", "boomerang.png");
         this.load.image("heart", "heart.png");
         this.load.image("laser", "laser.png");
     }
@@ -79,11 +81,16 @@ class Move extends Phaser.Scene
         this.t.text.nextWave = this.add.text(360, 250, "WAVE 1");
         this.t.text.nextWave.visible = false;
         this.t.text.win = this.add.text(310, 250, "YOU WIN!");
+        this.t.text.win.setDepth(1);
         this.t.text.win.setScale(2);
         this.t.text.win.visible = false;
         this.t.text.lose = this.add.text(310, 250, "GAME OVER");
+        this.t.text.lose.setDepth(1);
         this.t.text.lose.setScale(2);
         this.t.text.lose.visible = false;
+        this.t.text.restart = this.add.text(312, 300, "Press r to restart");
+        this.t.text.restart.visible = false;
+        this.t.text.restart.setDepth(1);
         
 
         my.sprite.player = this.add.sprite(this.playerX, this.playerY, "player");
@@ -114,7 +121,7 @@ class Move extends Phaser.Scene
         
         this.input.keyboard.on('keydown-SPACE', (event) =>
         {
-            if(!this.arrowFly)
+            if(!this.arrowFly && !this.gameOver)
             {
                 my.sprite.arrow.x = my.sprite.player.x;
                 my.sprite.arrow.y = my.sprite.player.y;
@@ -126,6 +133,7 @@ class Move extends Phaser.Scene
         this.enemySpawning = true;
         this.wave = 1;
         this.wait = 0;
+
         
     }
     
@@ -142,15 +150,14 @@ class Move extends Phaser.Scene
         var a = this.input.keyboard.addKey("a").isDown;
         var d = this.input.keyboard.addKey("d").isDown;
         var s = this.input.keyboard.addKey("s").isDown;
+        var r = this.input.keyboard.addKey("r").isDown;
         //console.log("x: " + my.sprite.arrow.x + "  y: " + my.sprite.arrow.y);;
         
         // UI
         this.t.text.score.setText("Score: " + this.score);
         this.t.text.wave.setText("WAVE " + this.wave + "/3");
         this.t.text.defeats.setText("Defeated " + this.enemiesDefeated + "/" + this.defeatsRequired);
-        
-        // Ground
-
+    
 
         // Win
         if(this.win)
@@ -159,18 +166,81 @@ class Move extends Phaser.Scene
             this.playerHealth = 5;
             my.sprite.player.y -= 30;
             this.t.text.win.visible = true;
+            this.t.text.restart.visible = true;
+            if(r)
+            {
+                this.restart = true;
+            }
+            console.log("win");
         }
         
         // Game over
         if(this.gameOver)
         {
             this.enemySpawning = false;
-            my.sprite.player.destroy(true);
+            my.sprite.player.visble = false;
             this.t.text.lose.visible = true;
+            this.t.text.restart.visible = true;
+            if(r)
+            {
+                this.restart = true;
+            }
+            console.log("game over");
+            if(this.zSpawned)
+            {
+                for(let i = 0; i < this.zNum; i++)
+                {
+                    this.zombies[i].destroy(true);
+                    this.zombies.splice(i, 1);
+                    this.zAttackHit.splice(i, 1);
+                    this.direction.splice(i, 1);
+                    this.zNum--;
+                    this.totalEnemies--;
+                }
+            }
+            if(this.rSpawned)
+            {
+                for(let i = 0; i < this.rNum; i++)
+                {
+                    this.robots[i].destroy(true);
+                    this.robots.splice(i, 1);
+                    this.laserDelay.splice(i, 1);
+                    this.rNum--;
+                    this.totalEnemies--;
+                }
+            }
+        }
+
+        // Restart
+        if(this.restart)
+        {
+            console.log("restart");
+            this.t.text.win.visible = false;
+            this.t.text.lose.visible = false;
+            this.t.text.restart.visible = false;
+            this.enemySpawning = true;
+            this.playerHealth = 5;
+            this.score = 0;
+            my.sprite.player.visble = true;
+            my.sprite.player.alpha = 1;
+            this.wave = 1;
+            this.wait = 0;
+            this.enemiesDefeated = 0;
+            this.gameOver = false;
+            this.win = false;
+            this.restart = false;
         }
 
 
         //Player Health
+        if(this.playerHealth == 5)
+        {
+            my.sprite.health5.visible = true;
+            my.sprite.health4.visible = true;
+            my.sprite.health3.visible = true;
+            my.sprite.health2.visible = true;
+            my.sprite.health1.visible = true;
+        }
         if(this.playerHealth == 4)
         {
             my.sprite.health5.visible = false;
@@ -236,10 +306,7 @@ class Move extends Phaser.Scene
                     }
                 }
                 this.dodgeHold--;
-                
             }
-
-            
         }
 
         // Arrow 
@@ -249,7 +316,7 @@ class Move extends Phaser.Scene
         }
         if(this.arrowFly)
         {
-            //my.sprite.arrow.angle += 45;
+            my.sprite.arrow.angle += 45;
         }
         if(!this.arrowFly)
         {
@@ -264,7 +331,7 @@ class Move extends Phaser.Scene
         }
         else if(this.arrowFly && this.arrowHit)
         {
-            my.sprite.arrow.angle += 45;
+            //my.sprite.arrow.angle += 45;
             var dx = my.sprite.player.x - my.sprite.arrow.x;
             var dy = my.sprite.player.y - my.sprite.arrow.y;
             var theta = Math.atan2(dy, dx);
@@ -323,11 +390,16 @@ class Move extends Phaser.Scene
         }
 
         // Getting hit
-        if(this.zSpawned)
+        if(this.gameOver)
+        {
+            my.sprite.player.visble = false;
+            my.sprite.player.alpha = 0;
+        }
+        else if(this.zSpawned)
         {
             for(let i = 0; i < this.zNum; i++)
             {
-                if(Phaser.Math.Distance.Between(my.sprite.player.x, my.sprite.player.y, this.zombies[i].x,  this.zombies[i].y) <= 25 && this.iFrames <= 0)
+                if(Phaser.Math.Distance.Between(my.sprite.player.x, my.sprite.player.y, this.zombies[i].x, this.zombies[i].y) <= 25 && this.iFrames <= 0)
                 {
                     console.log("hit");
                     this.playerHealth--;
@@ -337,11 +409,17 @@ class Move extends Phaser.Scene
 
             }
         }
-        if(this.rSpawned)
+
+        if(this.gameOver)
+        {
+            my.sprite.player.visble = false;
+            my.sprite.player.alpha = 0;
+        }
+        else if(this.rSpawned)
         {
             for(let i = 0; i < this.rNum; i++)
             {
-                if(Phaser.Math.Distance.Between(my.sprite.player.x, my.sprite.player.y, this.robots[i].x,  this.robots[i].y) <= 25 && this.iFrames <= 0)
+                if(Phaser.Math.Distance.Between(my.sprite.player.x, my.sprite.player.y, this.robots[i].x, this.robots[i].y) <= 25 && this.iFrames <= 0)
                 {
                     console.log("hit");
                     this.playerHealth--;
@@ -351,7 +429,7 @@ class Move extends Phaser.Scene
             }
             for(let i = 0; i < this.lNum; i++)
             {
-                if(Phaser.Math.Distance.Between(my.sprite.player.x, my.sprite.player.y, this.lasers[i].x,  this.lasers[i].y) <= 20 && this.iFrames <= 0)
+                if(Phaser.Math.Distance.Between(my.sprite.player.x, my.sprite.player.y, this.lasers[i].x, this.lasers[i].y) <= 20 && this.iFrames <= 0)
                 {
                     console.log("hit");
                     this.playerHealth--;
@@ -363,7 +441,7 @@ class Move extends Phaser.Scene
                 }
             } 
         }
-        
+
         if(this.iFrames > 0)
         {
             if(my.sprite.player.alpha == 0.5 && this.iFrames % 2 == 1)
@@ -405,7 +483,6 @@ class Move extends Phaser.Scene
                 this.enemySpawning = true;
             }
 
-
         }
         if(this.enemySpawning)
         {
@@ -415,7 +492,7 @@ class Move extends Phaser.Scene
                 this.wait += 1;
                 this.defeatsRequired = 30;
                 //console.ldog(this.totalEnemies);
-                if(Math.random() < 0.4 && this.wait >= 20 && this.totalEnemies < this.defeatsRequired) // 30% spawn chance
+                if(Math.random() < 0.4 && this.wait >= 20 && this.totalEnemies < this.defeatsRequired) // 40% spawn chance
                 {
                     this.zSpawned = true;
                     my.sprite.zombie = this.add.sprite(Math.random()*760 + 20, 0, "zombie");
