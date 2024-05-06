@@ -39,8 +39,10 @@ class Move extends Phaser.Scene
         // Robot related
         this.rSpawned = false;
         this.robots = [];
+        this.laserDelay = [];
         this.lasers = [];
         this.rNum = 0;
+        this.lNum = 0;
 
        
         // Zombie related
@@ -49,7 +51,6 @@ class Move extends Phaser.Scene
         this.zAttackHit = [];
         this.direction = [];
         this.zNum = 0;
-        
         
     }
 
@@ -62,13 +63,14 @@ class Move extends Phaser.Scene
         this.load.image("robot", "robot.png");
         this.load.image("arrow", "item_arrow.png");
         this.load.image("heart", "heart.png");
+        this.load.image("laser", "laser.png");
     }
 
     create() 
     {
         let my = this.my;   // create an alias to this.my for readability
 
-        this.t.text.score = this.add.text(700, 20, "Score: 0");
+        this.t.text.score = this.add.text(670, 20, "Score: 0");
         this.t.text.wave = this.add.text(350, 20, "WAVE 1/3");
         this.t.text.defeats = this.add.text(325, 40, "Defeated 0/30");
         this.t.text.score.setDepth(1);
@@ -76,6 +78,12 @@ class Move extends Phaser.Scene
         this.t.text.defeats.setDepth(1);
         this.t.text.nextWave = this.add.text(360, 250, "WAVE 1");
         this.t.text.nextWave.visible = false;
+        this.t.text.win = this.add.text(310, 250, "YOU WIN!");
+        this.t.text.win.setScale(2);
+        this.t.text.win.visible = false;
+        this.t.text.lose = this.add.text(310, 250, "GAME OVER");
+        this.t.text.lose.setScale(2);
+        this.t.text.lose.visible = false;
         
 
         my.sprite.player = this.add.sprite(this.playerX, this.playerY, "player");
@@ -97,6 +105,12 @@ class Move extends Phaser.Scene
         my.sprite.health3.visible = true;
         my.sprite.health4.visible = true;
         my.sprite.health5.visible = true;
+        my.sprite.health1.setDepth(1);
+        my.sprite.health2.setDepth(1);
+        my.sprite.health3.setDepth(1);
+        my.sprite.health4.setDepth(1);
+        my.sprite.health5.setDepth(1);
+
         
         this.input.keyboard.on('keydown-SPACE', (event) =>
         {
@@ -122,6 +136,8 @@ class Move extends Phaser.Scene
         let arrowSpeed = 50;
         let playerSpeed = 12;
         let enemySpeed = 2;
+        let laserSpeed = 20;
+        let lDelay = 40;
         
         var a = this.input.keyboard.addKey("a").isDown;
         var d = this.input.keyboard.addKey("d").isDown;
@@ -134,6 +150,24 @@ class Move extends Phaser.Scene
         this.t.text.defeats.setText("Defeated " + this.enemiesDefeated + "/" + this.defeatsRequired);
         
         // Ground
+
+
+        // Win
+        if(this.win)
+        {
+            this.enemySpawning = false;
+            this.playerHealth = 5;
+            my.sprite.player.y -= 30;
+            this.t.text.win.visible = true;
+        }
+        
+        // Game over
+        if(this.gameOver)
+        {
+            this.enemySpawning = false;
+            my.sprite.player.destroy(true);
+            this.t.text.lose.visible = true;
+        }
 
 
         //Player Health
@@ -155,6 +189,7 @@ class Move extends Phaser.Scene
         }
         if(this.playerHealth == 0)
             {
+                my.sprite.health1.visible = false;
                 this.gameOver = true;
             }
     
@@ -277,6 +312,7 @@ class Move extends Phaser.Scene
                 {
                     this.robots[i].destroy(true);
                     this.robots.splice(i, 1);
+                    this.laserDelay.splice(i, 1);
                     this.rNum--;
                     this.totalEnemies--;
                     this.enemiesDefeated++;
@@ -301,7 +337,7 @@ class Move extends Phaser.Scene
 
             }
         }
-        if(this.zSpawned)
+        if(this.rSpawned)
         {
             for(let i = 0; i < this.rNum; i++)
             {
@@ -312,9 +348,22 @@ class Move extends Phaser.Scene
                     this.iFrames = 30;
                     my.sprite.player.alpha = 0.5;
                 }
-
             }
+            for(let i = 0; i < this.lNum; i++)
+            {
+                if(Phaser.Math.Distance.Between(my.sprite.player.x, my.sprite.player.y, this.lasers[i].x,  this.lasers[i].y) <= 20 && this.iFrames <= 0)
+                {
+                    console.log("hit");
+                    this.playerHealth--;
+                    this.iFrames = 30;
+                    my.sprite.player.alpha = 0.5;
+                    this.lasers[i].destroy(true);
+                    this.lasers.splice(i, 1);
+                    this.lNum--;
+                }
+            } 
         }
+        
         if(this.iFrames > 0)
         {
             if(my.sprite.player.alpha == 0.5 && this.iFrames % 2 == 1)
@@ -334,7 +383,11 @@ class Move extends Phaser.Scene
         
         
         // Waves & Enemy spawning
-        if(this.enemiesDefeated >= this.defeatsRequired)
+        if(this.wave == 3 && this.enemiesDefeated >= this.defeatsRequired)
+        {
+            this.win = true;
+        }
+        else if(this.enemiesDefeated >= this.defeatsRequired && this.wave <= 3)
         {
             console.log(this.totalEnemies);
             this.enemySpawning = false;
@@ -360,9 +413,9 @@ class Move extends Phaser.Scene
             if(this.wave == 1) // Zombies only
             {
                 this.wait += 1;
-                this.defeatsRequired = 1;
+                this.defeatsRequired = 30;
                 //console.ldog(this.totalEnemies);
-                if(Math.random() < 0.2 && this.wait >= 20 && this.totalEnemies < this.defeatsRequired) // 20% spawn chance
+                if(Math.random() < 0.4 && this.wait >= 20 && this.totalEnemies < this.defeatsRequired) // 30% spawn chance
                 {
                     this.zSpawned = true;
                     my.sprite.zombie = this.add.sprite(Math.random()*760 + 20, 0, "zombie");
@@ -379,19 +432,50 @@ class Move extends Phaser.Scene
             if(this.wave == 2) // Robots only
             {
                 this.wait += 1;
-                this.defeatsRequired = 40;
+                this.defeatsRequired = 30;
                 //console.ldog(this.totalEnemies);
-                if(Math.random() < 0.2 && this.wait >= 30 && this.totalEnemies < this.defeatsRequired) // 30% spawn chance
+                if(Math.random() < 0.3 && this.wait >= 20 && this.totalEnemies < this.defeatsRequired) // 40% spawn chance
                 {
                     this.rSpawned = true;
                     my.sprite.robot = this.add.sprite(Math.random()*760 + 20, 0, "robot");
                     my.sprite.robot.angle = 90;
                     this.robots[this.rNum] = my.sprite.robot;
+                    this.laserDelay[this.rNum] = lDelay;
                     this.rNum++;
                     this.totalEnemies++;
                     this.wait = 0;
                 }
-            }    
+            }   
+            if(this.wave == 3) // Zombies and Robots
+            {
+                this.wait += 1;
+                this.defeatsRequired = 40;
+                //console.ldog(this.totalEnemies);
+                if(Math.random() < 0.3 && this.wait >= 20 && this.totalEnemies < this.defeatsRequired) // 30% spawn chance
+                {
+                    this.zSpawned = true;
+                    my.sprite.zombie = this.add.sprite(Math.random()*760 + 20, 0, "zombie");
+                    my.sprite.zombie.angle = 90;
+                    this.zombies[this.zNum] = my.sprite.zombie;
+                    this.zAttackHit[this.zNum] = false;
+                    this.direction[this.zNum] = false;
+                    this.zNum++;
+                    this.totalEnemies++;
+                    this.wait = 0;
+                }
+                if(Math.random() < 0.3 && this.wait >= 20 && this.totalEnemies < this.defeatsRequired) // 30% spawn chance
+                {
+                    this.rSpawned = true;
+                    my.sprite.robot = this.add.sprite(Math.random()*760 + 20, 0, "robot");
+                    my.sprite.robot.angle = 90;
+                    this.robots[this.rNum] = my.sprite.robot;
+                    this.laserDelay[this.rNum] = lDelay;
+                    this.rNum++;
+                    this.totalEnemies++;
+                    this.wait = 0;
+                }
+            }  
+
         }
 
         // Zombie movement
@@ -453,26 +537,51 @@ class Move extends Phaser.Scene
 
         // Robot Movement
         if(this.rSpawned)
+        {
+            for(let i = 0; i < this.rNum; i++)
             {
-                for(let i = 0; i < this.rNum; i++)
-                {
-                    
-                    if(this.robots[i].y > 700)
-                    {
-                        this.robots[i].destroy(true);
-                        this.robots.splice(i, 1);
-                        this.rNum--;
-                        this.totalEnemies--;
-                    }
-                    else
-                    {
-                        this.robots[i].y += enemySpeed;
-                    }
-                    
-                }
-                    
                 
-            }
+                if(this.robots[i].y > 700)
+                {
+                    this.robots[i].destroy(true);
+                    this.robots.splice(i, 1);
+                    this.rNum--;
+                    this.totalEnemies--;
+                }
+                else
+                {
+                    this.robots[i].y += enemySpeed;
+                    if(this.laserDelay[i] > 0) // shooting delay
+                    {
+                        this.laserDelay[i]--;
+                    }
+                    else // create a new laser
+                    {
+                        this.laserDelay[i] = lDelay; // reset shooting delay for this robot
+                        my.sprite.laser = this.add.sprite(this.robots[i].x-12, this.robots[i].y+30, "laser");
+                        my.sprite.laser.setScale(0.5);
+                        this.lasers[this.lNum] = my.sprite.laser;
+                        this.lNum++;
+                        
+                    }
+                }
+
+            }   
+            for(let i = 0; i < this.lNum; i++)
+            {
+                if(this.lasers[i].y > 700)
+                {
+                    this.lasers[i].destroy(true);
+                    this.lasers.splice(i, 1);
+                    this.lNum--;
+                }
+                else
+                {
+                    this.lasers[i].y += laserSpeed;
+                }
+
+            } 
+        }
     }
 
 }
